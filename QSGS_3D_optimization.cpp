@@ -1,5 +1,5 @@
 // QSGS_3D_optimization.cpp : 定义控制台应用程序的入口点。
-//
+//QSGS_3D算法，参考了一部分 https://github.com/huiselilun/QSGS 的代码
 
 #include "stdafx.h"
 #include <iostream> //输入输出流头文件
