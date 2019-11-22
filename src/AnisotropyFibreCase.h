@@ -100,7 +100,7 @@ public:
     }
     void exportFibreSetParameter(){
         ofstream fout;
-        fout.open("FibreParameter.dat", ios::app);
+        fout.open("FibreParameter.dat", ios::ate);
         fout<<fibreblock.getNx()<<"\t"<<fibreblock.getNy()<<"\t"<<fibreblock.getNz()<<endl;
         fout<<fs.getN()<<endl;
         for ( int f = 1; f <= fs.getN(); f++){
