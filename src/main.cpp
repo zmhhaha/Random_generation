@@ -54,24 +54,24 @@ int main(int argc, char* argv[])
 
 	ofstream fout;
 
-	//´ò¿ª¼ÇÂ¼ÎÄ¼ş
+	//æ‰“å¼€è®°å½•æ–‡ä»¶
 	fout.open("record.dat", ios::ate);
-	fout << "ÏËÎ¬°ë¾¶£º" << radius << endl;
-	fout << "¿ÕÏ¶ÂÊ£º" << voidage << endl;
-	fout << "×Üºñ¶È£º" << thick << endl;
-	fout << "×Ü³¤¶È£º" << length << endl;
-	fout << "×Ü¿í¶È£º" << width << endl;
-	fout << "¾«¶È£º" << precision << endl;
-	fout << "Z£º" << Grid_Z << endl;
-	fout << "Y£º" << Grid_Y << endl;
-	fout << "X£º" << Grid_X << endl;
+	fout << "çº¤ç»´åŠå¾„ï¼š" << radius << endl;
+	fout << "ç©ºéš™ç‡ï¼š" << voidage << endl;
+	fout << "æ€»åšåº¦ï¼š" << thick << endl;
+	fout << "æ€»é•¿åº¦ï¼š" << length << endl;
+	fout << "æ€»å®½åº¦ï¼š" << width << endl;
+	fout << "ç²¾åº¦ï¼š" << precision << endl;
+	fout << "Zï¼š" << Grid_Z << endl;
+	fout << "Yï¼š" << Grid_Y << endl;
+	fout << "Xï¼š" << Grid_X << endl;
 	fout.close();
 
 	AnisotropyFibreCase<DESCRIPTOR> fibrecase(Grid_X, Grid_Y, Grid_Z,voidage, radius_grid, beta);
 	
-	//Êä³öÊı¾İtecplot¸ñÊ½
+	//è¾“å‡ºæ•°æ®tecplotæ ¼å¼
 	fout.open("teceplot.dat", ios::ate); 
-	fout << "TITLE = \"contour\"\nvariables = \"x\", \"y\", \"z\", \"solid\"\nZone I = " << Grid_Z << ", J = " << Grid_Y << ", K = " << Grid_X << " F = POINT" << endl;//°´ÕÕtecplotµÄÍØÆË½á¹¹ÒªÇóÊä³ö
+	fout << "TITLE = \"contour\"\nvariables = \"x\", \"y\", \"z\", \"solid\"\nZone I = " << Grid_Z << ", J = " << Grid_Y << ", K = " << Grid_X << " F = POINT" << endl;//æŒ‰ç…§tecplotçš„æ‹“æ‰‘ç»“æ„è¦æ±‚è¾“å‡º
 	for (int i = 0; i < Grid_X; i++){
 		for (int j = 0; j < Grid_Y; j++){
 			for (int k = 0; k < Grid_Z; k++){
@@ -80,10 +80,10 @@ int main(int argc, char* argv[])
 		}
 	}
 	fout.close();
-	std::cout << "tecplot3D½á¹¹ÎÄ¼şĞ´ÈëÍê±Ï" << endl;
+	std::cout << "tecplot3Dç»“æ„æ–‡ä»¶å†™å…¥å®Œæ¯•" << endl;
 
-	//Êä³öÊı¾İpalabos¸ñÊ½
-	fout.open("palabos.dat", ios::app); //ios::app ËùÓĞÊä³ö¸½¼ÓÔÚÎÄ¼şÄ©Î²
+	//è¾“å‡ºæ•°æ®palabosæ ¼å¼
+	fout.open("palabos.dat", ios::ate);
 
 	for (int i = 0; i < Grid_X; i++){
 		for (int j = 0; j < Grid_Y; j++){
@@ -93,15 +93,7 @@ int main(int argc, char* argv[])
 		}
 	}
 	fout.close();
-	std::cout << "palabosÎÄ¼şĞ´ÈëÍê±Ï" << endl;
-	/*
-	for (int i = 0; i < Grid_X; i++){
-		for (int j = 0; j < Grid_Y; j++){
-			for (int k = 0; k < Grid_Z; k++){
-				cout << i << "\t" << j << "\t" << k << "\t" << fibrecase.getBlockLattice().get(i, j, k)[1] << endl;
-			}
-		}
-	}
-	*/
+	std::cout << "palabosæ–‡ä»¶å†™å…¥å®Œæ¯•" << endl;
+
     return 0;
 }
