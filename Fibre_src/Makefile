@@ -2,11 +2,11 @@ CC = g++
 CFLAG = -std=c++11 -fopenmp 
 all : main analyze
 .PHONY : all
-main : main.cpp *.h
-	$(CC) $(CFLAG) -o main main.cpp
-analyze : analyze.cpp *.h
-	$(CC) $(CFLAG) -o analyze analyze.cpp
+main : src/main.cpp src/*.h
+	$(CC) $(CFLAG) -o main src/main.cpp 
+analyze : src/analyze.cpp src/*.h
+	$(CC) $(CFLAG) -o analyze src/analyze.cpp
 clean :
 	rm main analyze
 install : main analyze
-	mv main analyze ./tmp
+	mv main analyze ./bin
