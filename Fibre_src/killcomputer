@@ -1,0 +1,5 @@
+#!/bin/sh
+while ps -e | grep "$1" > /dev/null; do
+  sleep 20
+done
+shutdown -h now
