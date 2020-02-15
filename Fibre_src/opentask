@@ -2,10 +2,12 @@
 while ps -e | grep "$1" > /dev/null; do
   sleep 20
 done
-echo "$2";
-echo $2;
-cd /home/node2/gitmaster/Random_generation/Fibre_src;
-cd $2;
-nohup ../bin/$1 1 0.6 10 10 10 0.2 20 > /dev/null 2>&1 &
-cd /home/node2/gitmaster/Random_generation/Fibre_src;
-ls;
+cd /home/node2/gitmaster/Random_generation/Fibre_src
+cd $2
+nohup ../bin/$1 1 0.6 100 100 100 0.2 4 > /dev/null 2>&1 &
+let addnumber=$2+1
+#echo $addnumber
+cd /home/node2/gitmaster/Random_generation/Fibre_src
+if ls | grep "$addnumber" > /dev/null; then
+  nohup ./opentask $1 $addnumber > /dev/null 2>&1 &
+fi
