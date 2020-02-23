@@ -9,4 +9,5 @@ analyze : src/analyze.cpp src/*.h
 clean :
 	rm main analyze
 install : main analyze
+	cp main analyze /mnt/sdb1
 	mv main analyze ./bin

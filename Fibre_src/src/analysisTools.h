@@ -135,11 +135,13 @@ public:
             first=resultdata;
         }while(sum!=0);
     }
-    double shortestPath(int n){
+    double shortestPath(int n, bool printall=false){
         resultdata.reset();
         Box3D datadomain=analysisdomain.enlarge(-envelope);
         RandomNumber rn;
         DotList3D begin;
+        ofstream fout;
+        fout.open("spdata.dat", ios::ate);
         double sum=0;
         while(begin.getN()<n){
             int tempz=datadomain.z0;
@@ -147,19 +149,24 @@ public:
             int tempy=rn.getRandomInt(datadomain.y0,datadomain.y1);
             if(abs(rawdata.get(tempx,tempy,tempz)-0.0)<0.0001){
                 begin.addDot(Dot3D(tempx,tempy,tempz));
-                sum+=findShortestPath(Dot3D(tempx,tempy,tempz));
+                double oneans=findShortestPath(Dot3D(tempx,tempy,tempz),printall);
+                fout<<oneans<<endl;
+                sum+=oneans;
             }
         }
+        fout.close();
         return sum/static_cast<double>(n);
     }
     
-    void exportAnalysisData(){
-        TeceplotWriter tw(createFileName("teceplot",1,3));
-	    tw.writeData(resultdata,resultdata.getBoundingBox().enlarge(-envelope));
-
-        PalabosWriter pw(createFileName("palabos",1,3));
-	    pw.writeData(resultdata,resultdata.getBoundingBox().enlarge(-envelope));
-
+    void exportAnalysisData(std::string headname, bool palabos=true, bool teceplot=false){
+        if(teceplot){
+            TeceplotWriter tw("teceplot"+headname);
+	        tw.writeData(resultdata,resultdata.getBoundingBox().enlarge(-envelope));
+        }
+        if(palabos){
+            PalabosWriter pw("palabos"+headname);
+            pw.writeData(resultdata,resultdata.getBoundingBox().enlarge(-envelope));
+        }
     }
 private:
     void getPath(Node* parentNode){
@@ -169,7 +176,7 @@ private:
             getPath(parentNode->parent);
         }
     }
-    double findShortestPath(Dot3D const& begin){
+    double findShortestPath(Dot3D const& begin, bool printall){
         Box3D datadomain=analysisdomain.enlarge(-envelope);
         Node*** parents=new Node**[analysisdomain.getNx()];
         for (int i = 0; i < analysisdomain.getNx(); i++){
@@ -206,7 +213,7 @@ private:
                 length=parents[top.x][top.y][top.z].step;
                 resultdata.get(top.x,top.y,top.z)=length;
                 getPath(parents[top.x][top.y][top.z].parent);
-                //break;
+                if(!printall) break;
             }
         }
 

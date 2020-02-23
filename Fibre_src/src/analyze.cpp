@@ -19,7 +19,7 @@ typedef descriptors::CellDescriptor DESCRIPTOR;
 
 int main(int argc, char* argv[])
 {
-	if (argc != 5)
+	if (argc != 6)
 	{
 		std::cout << "have some mistake in parameter\n";
 		std::cout << "the struct of input\n";
@@ -27,17 +27,19 @@ int main(int argc, char* argv[])
         std::cout << "2. Raw data input file\n";
         std::cout << "3. voidage\n";
         std::cout << "4. beta\n";
+        std::cout << "5. analytical model\n";
 		exit(EXIT_FAILURE);
 	}
-
-    printf("%d",1);
 
     std::string fNameIn = argv[1];
     std::string fNameInRawData = argv[2];
     float voidage = atof(argv[3]);
     float beta = atof(argv[4]);
+    int mod = atoi(argv[5]);
 
-    printf("%d",1);
+    std::string outname;
+
+    printf("Parameter input.\n");
 
     ifstream fin(fNameIn.c_str());
     int Grid_X, Grid_Y, Grid_Z;
@@ -51,7 +53,7 @@ int main(int argc, char* argv[])
         fs.insertFibre(Fibre(Point3D(px,py,pz),UnitVec(Point3D(vx,vy,vz)),radius));
     }
 
-    printf("%d",1);
+    printf("Fibre set input.\n");
 
     ifstream finRaw(fNameInRawData.c_str());
     ScalarField3D rawdata(Grid_X,Grid_Y,Grid_Z);
@@ -64,16 +66,23 @@ int main(int argc, char* argv[])
     }
 
     analysisTools astools(rawdata);
-    printf("%d",1);
+    printf("Raw Data input.\n");
 
     Filter filter(1,std::sqrt(2),std::sqrt(3));
 
-    printf("%d",1);
-    //astools.distanceTransform(filter);
+    printf("Begin analyze.\n");
+    if(mod==1){
+        astools.distanceTransform(filter);
+        outname="df";
+    }
+    if(mod==2){
+        int n=1000;
+        double nsp=astools.shortestPath(1000);
+        printf("Statistical sample size:%d\n",n);
+        printf("The shortest Path:%f\n",nsp);
+        outname="sp";
+    }
 
-    
-    double n=astools.shortestPath(1);
-    printf("%f\n",n);
-    astools.exportAnalysisData();
+    astools.exportAnalysisData(outname);
     return 0;
 }
