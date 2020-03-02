@@ -94,7 +94,8 @@ public:
         double virtual_long = sqrt(pow(Grid_X, 2) + pow(Grid_Y, 2) + pow(Grid_Z, 2));
 	    double onefibre = virtual_long*(pow(Grid_Radius, 2)*3.14159);
 	    double volume = Grid_X*Grid_Y*Grid_Z*(1 - voidage);
-	    int t_first = 2*(int)(volume / onefibre);
+        //the predict number of fibre set
+	    int t_first = 1.5*(int)(volume / onefibre);
         Box3D box=fibreblock.getBoundingBox();
         for (int i = 0; i < t_first; i++){
             fs.insertFibre(BetaFibre(box,dis.getRhoMap(),1000,Grid_Radius,rng));

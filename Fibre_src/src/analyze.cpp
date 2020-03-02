@@ -77,10 +77,25 @@ int main(int argc, char* argv[])
     }
     if(mod==2){
         int n=1000;
-        double nsp=astools.shortestPath(1000);
+        double nsp=astools.shortestPath(n);
         printf("Statistical sample size:%d\n",n);
         printf("The shortest Path:%f\n",nsp);
         outname="sp";
+    }
+    if(mod==3){
+        int n=1000;
+        int length=100;
+        double nsp=astools.porousDistribution(n,length);
+        printf("Statistical sample size:%d\n",n);
+        printf("The average voidage:%f\n",nsp);
+        return 0;
+    }
+    if(mod==4){
+        int part=20;
+        int nc=astools.porousCenter(part,filter);
+        printf("Block number:%d\n",part);
+        printf("The center number:%d\n",nc);
+        return 0;
     }
 
     astools.exportAnalysisData(outname);

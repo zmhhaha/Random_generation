@@ -8,6 +8,8 @@
 #include <cmath>
 #include <limits>
 #include <queue>
+#include <vector>
+#include <sstream>
 
 class Filter{
 public:
@@ -98,6 +100,73 @@ public:
         }
     }
     ~analysisTools(){}
+    int porousCenter(int part, Filter const& filter){
+        distanceTransform(filter);
+        Box3D datadomain=analysisdomain.enlarge(-envelope);
+        int Nx=datadomain.getNx();
+        int Ny=datadomain.getNy();
+        int Nz=datadomain.getNz();
+        int interpolation=Nx/part;
+        ofstream fout;
+        fout.open("pcdata.dat", ios::ate);
+        int allcenter=0;
+        for(int p=0;p<part-1;p++){
+            int npx0 = datadomain.x0+p*interpolation;
+            int npx1 = datadomain.x0+(p+1)*interpolation-1;
+            std::vector<Dot3D> buffer(interpolation*Ny*Nz,Dot3D(0,0,0));
+            std::vector<bool> bufferIndex(interpolation*Ny*Nz,false);
+            int numpoint=0;
+            #pragma omp parallel for reduction(+:numpoint)
+            for(int i=0;i<interpolation;i++){
+                for(int j=0;j<Ny;j++){
+                    for(int k=0;k<Nz;k++){
+                        int index=i*Ny*Nz+j*Nz+k;
+                        if(maxpoint(Dot3D(npx0+i,datadomain.y0+j,datadomain.z0+k),datadomain)){
+                            buffer[index]=Dot3D(npx0+i,datadomain.y0+j,datadomain.z0+k);
+                            bufferIndex[index]=true;
+                            numpoint++;
+                        }
+                    }
+                }
+            }
+            for(int i=0;i<interpolation*Ny*Nz;i++){
+                if(bufferIndex[i]){
+                    fout<<buffer[i].x<<"\t"<<buffer[i].y<<"\t"<<buffer[i].z<<endl;
+                }
+            }
+            allcenter+=numpoint;
+        }
+        {
+            int npx0 = datadomain.x0+(part-1)*interpolation;
+            int npx1 = datadomain.x1;
+            interpolation=npx1-npx0+1;
+            std::vector<Dot3D> buffer(interpolation*Ny*Nz,Dot3D(0,0,0));
+            std::vector<bool> bufferIndex(interpolation*Ny*Nz,false);
+            int numpoint=0;
+            #pragma omp parallel for reduction(+:numpoint)
+            for(int i=0;i<interpolation;i++){
+                for(int j=0;j<Ny;j++){
+                    for(int k=0;k<Nz;k++){
+                        int index=i*Ny*Nz+j*Nz+k;
+                        if(maxpoint(Dot3D(npx0+i,datadomain.y0+j,datadomain.z0+k),datadomain)){
+                            buffer[index]=Dot3D(npx0+i,datadomain.y0+j,datadomain.z0+k);
+                            bufferIndex[index]=true;
+                            numpoint++;
+                        }
+                    }
+                }
+            }
+            for(int i=0;i<interpolation*Ny*Nz;i++){
+                if(bufferIndex[i]){
+                    fout<<buffer[i].x<<"\t"<<buffer[i].y<<"\t"<<buffer[i].z<<endl;
+                }
+            }
+            allcenter+=numpoint;
+        }
+        fout.close();
+        return allcenter;
+    }
+
     void distanceTransform(Filter const& filter){
         resultdata.reset();
         Box3D datadomain=analysisdomain.enlarge(-envelope);
@@ -157,6 +226,36 @@ public:
         fout.close();
         return sum/static_cast<double>(n);
     }
+    double porousDistribution(int n, int length){
+        Box3D datadomain=analysisdomain.enlarge(-envelope);
+        RandomNumber rn;
+        std::vector<double> buffer(n,0);
+        DotList3D samples;
+        while(samples.getN()<n){
+            int tempx=rn.getRandomInt(datadomain.x0,datadomain.x1);
+            int tempy=rn.getRandomInt(datadomain.y0,datadomain.y1);
+            int tempz=rn.getRandomInt(datadomain.z0,datadomain.z1);
+
+            if(contained(tempx+length-1, tempy+length-1, tempz+length-1, datadomain)){
+                samples.addDot(Dot3D(tempx,tempy,tempz));
+            }
+        }
+
+        double sum=0;
+        #pragma omp parallel for reduction(+:sum)
+        for(int i=0; i<n; i++){
+            double oneans=calculateVoidage(samples.getDot(i), length);
+            buffer[i]=oneans;
+            sum+=oneans;
+        }
+        ofstream fout;
+        fout.open("lvdata.dat", ios::ate);
+        for(int i=0; i<n; i++){
+            fout<<buffer[i]<<endl;
+        }
+        fout.close();
+        return sum/n;
+    }
     
     void exportAnalysisData(std::string headname, bool palabos=true, bool teceplot=false){
         if(teceplot){
@@ -185,8 +284,9 @@ private:
                 parents[i][j]=new Node[analysisdomain.getNz()];
             }
         }
-
-        addScale as(mode::d6);
+        
+        //the change point
+        addScale as(mode::d26);
 
         Filter fl(1,sqrt(2),sqrt(3));
         ScalarField3D inq=rawdata;
@@ -227,6 +327,37 @@ private:
         }
         delete [] parents;
         return length;
+    }
+    double calculateVoidage(Dot3D const& sample, int length){
+        int sum=0;
+        int total=pow(length,3);
+        for(int i=sample.x; i<sample.x+length; i++){
+            for(int j=sample.y; j<sample.y+length; j++){
+                for(int k=sample.z; k<sample.z+length; k++){
+                    int temp=rawdata.get(i,j,k);
+                    sum+=temp;
+                }
+            }
+        }
+
+        return 1-static_cast<double>(sum)/total;
+    }
+    bool maxpoint(Dot3D const& center,Box3D const& datadomain){
+        int centerx=center.x;
+        int centery=center.y;
+        int centerz=center.z;
+        double centervalue=resultdata.get(centerx,centery,centerz);
+        for(int i=-1;i<=1;i++){
+            for(int j=-1;j<=1;j++){
+                for(int k=-1;k<=1;k++){
+                    if(!contained(centerx+i,centery+j,centerz+k,datadomain)) return false;
+                    if(i==0&&j==0&&k==0) continue;
+                    if(rawdata.get(centerx+i,centery+j,centerz+k)>0.001) return false;
+                    if(resultdata.get(centerx+i,centery+j,centerz+k)>=centervalue) return false;
+                }
+            }
+        }
+        return true;
     }
 private:
     int envelope;
