@@ -6,10 +6,12 @@
 #include "io.h"
 #include "randomnumber.h"
 #include <cmath>
+#include<cfloat>
 #include <limits>
 #include <queue>
 #include <vector>
 #include <sstream>
+using std::vector;
 
 class Filter{
 public:
@@ -100,9 +102,13 @@ public:
         }
     }
     ~analysisTools(){}
-    int porousCenter(int part, Filter const& filter){
-        distanceTransform(filter);
+    int porousCenter(int part, Filter const& filter, addScale const& addScale){
+        distanceTransform(filter,addScale);
         Box3D datadomain=analysisdomain.enlarge(-envelope);
+        
+        //the compare domain size
+        int compareLength=1;
+
         int Nx=datadomain.getNx();
         int Ny=datadomain.getNy();
         int Nz=datadomain.getNz();
@@ -121,7 +127,7 @@ public:
                 for(int j=0;j<Ny;j++){
                     for(int k=0;k<Nz;k++){
                         int index=i*Ny*Nz+j*Nz+k;
-                        if(maxpoint(Dot3D(npx0+i,datadomain.y0+j,datadomain.z0+k),datadomain)){
+                        if(maxpoint(Dot3D(npx0+i,datadomain.y0+j,datadomain.z0+k),datadomain,compareLength)){
                             buffer[index]=Dot3D(npx0+i,datadomain.y0+j,datadomain.z0+k);
                             bufferIndex[index]=true;
                             numpoint++;
@@ -131,7 +137,8 @@ public:
             }
             for(int i=0;i<interpolation*Ny*Nz;i++){
                 if(bufferIndex[i]){
-                    fout<<buffer[i].x<<"\t"<<buffer[i].y<<"\t"<<buffer[i].z<<endl;
+                    fout<<(buffer[i].x-envelope)<<"\t"<<(buffer[i].y-envelope)<<"\t"<<(buffer[i].z-envelope)<<endl;
+                    resultdata.get(buffer[i].x,buffer[i].y,buffer[i].z)=std::max(Nx,std::max(Ny,Nz));
                 }
             }
             allcenter+=numpoint;
@@ -148,7 +155,7 @@ public:
                 for(int j=0;j<Ny;j++){
                     for(int k=0;k<Nz;k++){
                         int index=i*Ny*Nz+j*Nz+k;
-                        if(maxpoint(Dot3D(npx0+i,datadomain.y0+j,datadomain.z0+k),datadomain)){
+                        if(maxpoint(Dot3D(npx0+i,datadomain.y0+j,datadomain.z0+k),datadomain,compareLength)){
                             buffer[index]=Dot3D(npx0+i,datadomain.y0+j,datadomain.z0+k);
                             bufferIndex[index]=true;
                             numpoint++;
@@ -158,7 +165,8 @@ public:
             }
             for(int i=0;i<interpolation*Ny*Nz;i++){
                 if(bufferIndex[i]){
-                    fout<<buffer[i].x<<"\t"<<buffer[i].y<<"\t"<<buffer[i].z<<endl;
+                    fout<<(buffer[i].x-envelope)<<"\t"<<(buffer[i].y-envelope)<<"\t"<<(buffer[i].z-envelope)<<endl;
+                    resultdata.get(buffer[i].x,buffer[i].y,buffer[i].z)=std::max(Nx,std::max(Ny,Nz));
                 }
             }
             allcenter+=numpoint;
@@ -166,12 +174,19 @@ public:
         fout.close();
         return allcenter;
     }
-
-    void distanceTransform(Filter const& filter){
+    void distanceTransform(Filter const& filter, addScale const& addscale){
         resultdata.reset();
         Box3D datadomain=analysisdomain.enlarge(-envelope);
         ScalarField3D first=rawdata;
-        resultdata=rawdata;
+        #pragma omp parallel for
+        for (int i = datadomain.x0; i <= datadomain.x1; i++){
+            for (int j = datadomain.y0; j <= datadomain.y1; j++){
+                for (int k = datadomain.z0; k <= datadomain.z1; k++){
+                    first.get(i,j,k)=-rawdata.get(i,j,k);
+                }
+            }
+        }
+        resultdata=first;
         int sum,t=0;
         do{
             sum=0;
@@ -183,27 +198,50 @@ public:
                         int nsum=0;
                         double small=std::numeric_limits<double>::max();
                         if(std::abs(first.get(i,j,k)-0.0)<0.0001){
-                            for (int ix = -1; ix <= 1; ix++){
+                            /*for (int ix = -1; ix <= 1; ix++){
                                 for (int iy = -1; iy <= 1; iy++){
                                     for (int iz = -1; iz <= 1; iz++){
-                                        if(std::abs(first.get(i+ix,j+iy,k+iz)-0.0)>0.001) {
+                                        if(std::abs(first.get(i+ix,j+iy,k+iz)-0.0)>0.0001) {
                                             nsum++;
                                             double temp=std::max(0.0,first.get(i+ix,j+iy,k+iz))+filter.get(ix,iy,iz);
                                             small=std::min(small,temp);
                                         }
                                     }
                                 }
+                            }*/
+                            for(int as=0;as<addscale.n;as++){
+                                int ix=addscale.X[as];
+                                int iy=addscale.Y[as];
+                                int iz=addscale.Z[as];
+                                if(std::abs(first.get(i+ix,j+iy,k+iz)-0.0)>0.0001) {
+
+                                    nsum++;
+                                    double temp=std::max(0.0,first.get(i+ix,j+iy,k+iz))+filter.get(ix,iy,iz);
+                                    small=std::min(small,temp);
+                                }
                             }
                             if(nsum>0) resultdata.get(i,j,k)=small;
                             else resultdata.get(i,j,k)=0;
                             sum++;
                         }
+                        
                     }
                 }
             }
             first=resultdata;
         }while(sum!=0);
+
+        #pragma omp parallel for
+        for (int i = datadomain.x0; i <= datadomain.x1; i++){
+            for (int j = datadomain.y0; j <= datadomain.y1; j++){
+                for (int k = datadomain.z0; k <= datadomain.z1; k++){
+                    if(resultdata.get(i,j,k)<0) resultdata.get(i,j,k)=0;
+                }
+            }
+        }
+        return ;
     }
+
     double shortestPath(int n, bool printall=false){
         resultdata.reset();
         Box3D datadomain=analysisdomain.enlarge(-envelope);
@@ -256,7 +294,47 @@ public:
         fout.close();
         return sum/n;
     }
-    
+    double smallWeightPath(Filter const& filter, addScale const& addscale){
+        distanceTransform(filter, addscale);
+        Box3D datadomain=analysisdomain.enlarge(-envelope);
+        
+        //the transfer distance data become the rawdata
+        rawdata=resultdata;
+
+        resultdata.reset(1000000000);
+
+        //find the max value of distance
+        double maxvalue=0;
+        for (int i = datadomain.x0; i <= datadomain.x1; i++){
+            for (int j = datadomain.y0; j <= datadomain.y1; j++){
+                for (int k = datadomain.z0; k <= datadomain.z1; k++){
+                    maxvalue=std::max(maxvalue,rawdata.get(i,j,k));
+                }
+            }
+        }
+
+        RandomNumber rn;
+        int tempx=55;//rn.getRandomInt(datadomain.x0,datadomain.x1);
+        int tempy=92;//rn.getRandomInt(datadomain.y0,datadomain.y1);
+        int tempz=1;//datadomain.z0;
+        
+        double threshold=1.5*datadomain.getNz()*maxvalue;
+        DotList3D pathans;
+        DotList3D path;
+        double pathvalueans=0;
+        if(abs(rawdata.get(tempx,tempy,tempz)-0.0)>0.0001){
+            printf("%d,%d,%d\n",tempx,tempy,tempz);
+            //printf("%f\n",rawdata.get(tempx,tempy,tempz));
+            double pathweight=0;
+            double inputvalue=1;
+            Dot3D head=Dot3D(tempx,tempy,tempz);
+            path.addDot(head);
+            smallWeightDFS(pathweight, threshold, path, pathans, inputvalue, pathvalueans, Dot3D(tempx,tempy,tempz), maxvalue, addscale, head, maxvalue);
+        }
+        printf("The biggest pore radius:%f\n",maxvalue);
+        printf("The number of path dot:%d\n",pathans.getN());
+        return pathvalueans;
+    }
     void exportAnalysisData(std::string headname, bool palabos=true, bool teceplot=false){
         if(teceplot){
             TeceplotWriter tw("teceplot"+headname);
@@ -342,14 +420,14 @@ private:
 
         return 1-static_cast<double>(sum)/total;
     }
-    bool maxpoint(Dot3D const& center,Box3D const& datadomain){
+    bool maxpoint(Dot3D const& center,Box3D const& datadomain,int compareLength){
         int centerx=center.x;
         int centery=center.y;
         int centerz=center.z;
         double centervalue=resultdata.get(centerx,centery,centerz);
-        for(int i=-1;i<=1;i++){
-            for(int j=-1;j<=1;j++){
-                for(int k=-1;k<=1;k++){
+        for(int i=-compareLength;i<=compareLength;i++){
+            for(int j=-compareLength;j<=compareLength;j++){
+                for(int k=-compareLength;k<=compareLength;k++){
                     if(!contained(centerx+i,centery+j,centerz+k,datadomain)) return false;
                     if(i==0&&j==0&&k==0) continue;
                     if(rawdata.get(centerx+i,centery+j,centerz+k)>0.001) return false;
@@ -358,6 +436,36 @@ private:
             }
         }
         return true;
+    }
+    void smallWeightDFS(double pathweight, double& threshold, DotList3D& path, DotList3D& pathans, double pathvalue, double& pathvalueans,
+                        Dot3D cur, double const& maxvalue, addScale const& addscale, Dot3D const& head, int domainlength){
+        if(cur.z==analysisdomain.z1-envelope){
+            if(pathweight<threshold){
+                threshold=pathweight;
+                pathans=path;
+                pathvalueans=pathvalue;
+            }
+            printf("%f\n",threshold);
+            return;
+        }
+        if(!contained(cur.x,cur.y,cur.z,analysisdomain.enlarge(-envelope))) return;
+        if(abs(cur.x-head.x)>domainlength||abs(cur.y-head.y)>domainlength) return;
+        if(pathweight>threshold) return;
+        double curvalue=maxvalue-rawdata.get(cur.x,cur.y,cur.z);
+        double newvalue=curvalue+pathweight;
+        //printf("%d,%d,%d,%f\n",cur.x,cur.y,cur.z,newvalue);
+        if(newvalue>=resultdata.get(cur.x,cur.y,cur.z)) return;
+        resultdata.get(cur.x,cur.y,cur.z)=newvalue;
+        for(int i=0;i<addscale.n;i++){
+            int x=cur.x+addscale.X[i];
+            int y=cur.y+addscale.Y[i];
+            int z=cur.z+addscale.Z[i];
+            double norm=std::sqrt(std::pow(addscale.X[i],2)+std::pow(addscale.Y[i],2)+std::pow(addscale.Z[i],2));
+            path.addDot(Dot3D(cur.x,cur.y,cur.z));
+            smallWeightDFS(newvalue,threshold, path, pathans, pathvalue+norm, pathvalueans,
+                           Dot3D(x,y,z),maxvalue,addscale,head,domainlength);
+            path.eraseDot();
+        }
     }
 private:
     int envelope;

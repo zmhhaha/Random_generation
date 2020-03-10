@@ -69,10 +69,12 @@ int main(int argc, char* argv[])
     printf("Raw Data input.\n");
 
     Filter filter(1,std::sqrt(2),std::sqrt(3));
+    
 
     printf("Begin analyze.\n");
     if(mod==1){
-        astools.distanceTransform(filter);
+        addScale addscale(d26);
+        astools.distanceTransform(filter,addscale);
         outname="df";
     }
     if(mod==2){
@@ -92,12 +94,19 @@ int main(int argc, char* argv[])
     }
     if(mod==4){
         int part=20;
-        int nc=astools.porousCenter(part,filter);
+        addScale addscale(d6);
+        int nc=astools.porousCenter(part,filter,addscale);
         printf("Block number:%d\n",part);
         printf("The center number:%d\n",nc);
+        outname="pc";
+    }
+    if(mod==5){
+        addScale addscale(d26);
+        double nc=astools.smallWeightPath(filter,addscale);
+        printf("The path length:%f\n",nc);
         return 0;
     }
 
-    astools.exportAnalysisData(outname);
+    astools.exportAnalysisData(outname,true,true);
     return 0;
 }

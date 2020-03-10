@@ -67,6 +67,10 @@ public:
     void addDot(Dot3D dot) {
         dots.push_back(dot);
     }
+    /// Erase the end dot
+    void eraseDot() {
+        dots.pop_back();
+    }
     /// Add more points to the list
     void addDots(std::vector<Dot3D> const& dots_) {
         dots.insert(dots.end(), dots_.begin(), dots_.end());

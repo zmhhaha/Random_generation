@@ -156,6 +156,11 @@ public:
             (*this)[index] = 0;
         }
     }
+    virtual void reset(double value){
+        for (unsigned int index=0; index<this->getNx()*this->getNy()*this->getNz(); ++index) {
+            (*this)[index] = value;
+        }
+    }
     virtual unsigned int getSize() const { return (unsigned int)this->getNx()*(unsigned int)this->getNy()*(unsigned int)this->getNz(); }
     virtual double& get(int iX, int iY, int iZ) {
         return field[iX][iY][iZ];

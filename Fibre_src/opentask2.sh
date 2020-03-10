@@ -15,7 +15,7 @@ else
 fi
 #echo -e "c=$c"
 nohup ../bin/$1 1 $c1.$c2 100 100 100 0.2 $c &> $2.out &
-let addnumber=$c+10
+let addnumber=$c+2
 if [ $addnumber -lt 10 ]; then
     addnumber=${c1}${c2}0${addnumber}
 else
