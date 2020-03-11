@@ -74,7 +74,7 @@ int main(int argc, char* argv[])
     printf("Begin analyze.\n");
     if(mod==1){
         addScale addscale(d26);
-        astools.distanceTransform(filter,addscale);
+        astools.distanceTransform(filter,addscale,2);
         outname="df";
     }
     if(mod==2){
@@ -95,7 +95,7 @@ int main(int argc, char* argv[])
     if(mod==4){
         int part=20;
         addScale addscale(d6);
-        int nc=astools.porousCenter(part,filter,addscale);
+        int nc=astools.porousCenter(part,filter,addscale,0);
         printf("Block number:%d\n",part);
         printf("The center number:%d\n",nc);
         outname="pc";
@@ -104,7 +104,7 @@ int main(int argc, char* argv[])
         addScale addscale(d26);
         double nc=astools.smallWeightPath(filter,addscale);
         printf("The path length:%f\n",nc);
-        return 0;
+        outname="swp";
     }
 
     astools.exportAnalysisData(outname,true,true);

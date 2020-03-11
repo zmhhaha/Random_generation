@@ -102,8 +102,88 @@ public:
         }
     }
     ~analysisTools(){}
-    int porousCenter(int part, Filter const& filter, addScale const& addScale){
-        distanceTransform(filter,addScale);
+
+    void distanceTransform(Filter const& filter, addScale const& addscale, int rawdataType){
+        resultdata.reset();
+        Box3D datadomain=analysisdomain.enlarge(-envelope);
+        ScalarField3D first(analysisdomain.getNx(),analysisdomain.getNy(),analysisdomain.getNz(),-1);
+        
+        // the change of rawdata input;
+        // value 0 is the datadomain without wall
+        // value 1 is the datadomain with all wall
+        // value other is the datadomain with x-directcion and y-direction wall 
+        Box3D rawdatainput;
+        if(rawdataType==0) rawdatainput=analysisdomain;
+        else if(rawdataType==1) rawdatainput=datadomain;
+        else rawdatainput=Box3D(datadomain.x0,datadomain.x1,datadomain.y0,datadomain.y1,analysisdomain.z0,analysisdomain.z1);
+        //printf("%d,%d,%d,%d,%d,%d\n",rawdatainput.x0,rawdatainput.x1,rawdatainput.y0,rawdatainput.y1,rawdatainput.z0,rawdatainput.z1);
+        
+        #pragma omp parallel for
+        for (int i = rawdatainput.x0; i <= rawdatainput.x1; i++){
+            for (int j = rawdatainput.y0; j <= rawdatainput.y1; j++){
+                for (int k = rawdatainput.z0; k <= rawdatainput.z1; k++){
+                    first.get(i,j,k)=-rawdata.get(i,j,k);
+                }
+            }
+        }
+        resultdata=first;
+        int sum,t=0;
+        do{
+            sum=0;
+            t++;
+            #pragma omp parallel for reduction(+:sum)
+            for (int i = datadomain.x0; i <= datadomain.x1; i++){
+                for (int j = datadomain.y0; j <= datadomain.y1; j++){
+                    for (int k = datadomain.z0; k <= datadomain.z1; k++){
+                        int nsum=0;
+                        double small=std::numeric_limits<double>::max();
+                        if(std::abs(first.get(i,j,k)-0.0)<0.0001){
+                            /*for (int ix = -1; ix <= 1; ix++){
+                                for (int iy = -1; iy <= 1; iy++){
+                                    for (int iz = -1; iz <= 1; iz++){
+                                        if(std::abs(first.get(i+ix,j+iy,k+iz)-0.0)>0.0001) {
+                                            nsum++;
+                                            double temp=std::max(0.0,first.get(i+ix,j+iy,k+iz))+filter.get(ix,iy,iz);
+                                            small=std::min(small,temp);
+                                        }
+                                    }
+                                }
+                            }*/
+                            for(int as=0;as<addscale.n;as++){
+                                int ix=addscale.X[as];
+                                int iy=addscale.Y[as];
+                                int iz=addscale.Z[as];
+                                if(std::abs(first.get(i+ix,j+iy,k+iz)-0.0)>0.0001) {
+
+                                    nsum++;
+                                    double temp=std::max(0.0,first.get(i+ix,j+iy,k+iz))+filter.get(ix,iy,iz);
+                                    small=std::min(small,temp);
+                                }
+                            }
+                            if(nsum>0) resultdata.get(i,j,k)=small;
+                            else resultdata.get(i,j,k)=0;
+                            sum++;
+                        }
+                        
+                    }
+                }
+            }
+            first=resultdata;
+        }while(sum!=0);
+
+        #pragma omp parallel for
+        for (int i = datadomain.x0; i <= datadomain.x1; i++){
+            for (int j = datadomain.y0; j <= datadomain.y1; j++){
+                for (int k = datadomain.z0; k <= datadomain.z1; k++){
+                    if(resultdata.get(i,j,k)<0) resultdata.get(i,j,k)=0;
+                }
+            }
+        }
+        return ;
+    }
+
+    int porousCenter(int part, Filter const& filter, addScale const& addScale,int porousCenterType){
+        distanceTransform(filter,addScale,porousCenterType);
         Box3D datadomain=analysisdomain.enlarge(-envelope);
         
         //the compare domain size
@@ -174,73 +254,6 @@ public:
         fout.close();
         return allcenter;
     }
-    void distanceTransform(Filter const& filter, addScale const& addscale){
-        resultdata.reset();
-        Box3D datadomain=analysisdomain.enlarge(-envelope);
-        ScalarField3D first=rawdata;
-        #pragma omp parallel for
-        for (int i = datadomain.x0; i <= datadomain.x1; i++){
-            for (int j = datadomain.y0; j <= datadomain.y1; j++){
-                for (int k = datadomain.z0; k <= datadomain.z1; k++){
-                    first.get(i,j,k)=-rawdata.get(i,j,k);
-                }
-            }
-        }
-        resultdata=first;
-        int sum,t=0;
-        do{
-            sum=0;
-            t++;
-            #pragma omp parallel for reduction(+:sum)
-            for (int i = datadomain.x0; i <= datadomain.x1; i++){
-                for (int j = datadomain.y0; j <= datadomain.y1; j++){
-                    for (int k = datadomain.z0; k <= datadomain.z1; k++){
-                        int nsum=0;
-                        double small=std::numeric_limits<double>::max();
-                        if(std::abs(first.get(i,j,k)-0.0)<0.0001){
-                            /*for (int ix = -1; ix <= 1; ix++){
-                                for (int iy = -1; iy <= 1; iy++){
-                                    for (int iz = -1; iz <= 1; iz++){
-                                        if(std::abs(first.get(i+ix,j+iy,k+iz)-0.0)>0.0001) {
-                                            nsum++;
-                                            double temp=std::max(0.0,first.get(i+ix,j+iy,k+iz))+filter.get(ix,iy,iz);
-                                            small=std::min(small,temp);
-                                        }
-                                    }
-                                }
-                            }*/
-                            for(int as=0;as<addscale.n;as++){
-                                int ix=addscale.X[as];
-                                int iy=addscale.Y[as];
-                                int iz=addscale.Z[as];
-                                if(std::abs(first.get(i+ix,j+iy,k+iz)-0.0)>0.0001) {
-
-                                    nsum++;
-                                    double temp=std::max(0.0,first.get(i+ix,j+iy,k+iz))+filter.get(ix,iy,iz);
-                                    small=std::min(small,temp);
-                                }
-                            }
-                            if(nsum>0) resultdata.get(i,j,k)=small;
-                            else resultdata.get(i,j,k)=0;
-                            sum++;
-                        }
-                        
-                    }
-                }
-            }
-            first=resultdata;
-        }while(sum!=0);
-
-        #pragma omp parallel for
-        for (int i = datadomain.x0; i <= datadomain.x1; i++){
-            for (int j = datadomain.y0; j <= datadomain.y1; j++){
-                for (int k = datadomain.z0; k <= datadomain.z1; k++){
-                    if(resultdata.get(i,j,k)<0) resultdata.get(i,j,k)=0;
-                }
-            }
-        }
-        return ;
-    }
 
     double shortestPath(int n, bool printall=false){
         resultdata.reset();
@@ -264,6 +277,7 @@ public:
         fout.close();
         return sum/static_cast<double>(n);
     }
+
     double porousDistribution(int n, int length){
         Box3D datadomain=analysisdomain.enlarge(-envelope);
         RandomNumber rn;
@@ -294,8 +308,9 @@ public:
         fout.close();
         return sum/n;
     }
+
     double smallWeightPath(Filter const& filter, addScale const& addscale){
-        distanceTransform(filter, addscale);
+        distanceTransform(filter, addscale ,2);
         Box3D datadomain=analysisdomain.enlarge(-envelope);
         
         //the transfer distance data become the rawdata
@@ -333,8 +348,14 @@ public:
         }
         printf("The biggest pore radius:%f\n",maxvalue);
         printf("The number of path dot:%d\n",pathans.getN());
+        resultdata=rawdata;
+        for(int i=0;i<pathans.getN();i++){
+            Dot3D temp=pathans.getDot(i);
+            resultdata.get(temp.x,temp.y,temp.z)=maxvalue*5;
+        }
         return pathvalueans;
     }
+
     void exportAnalysisData(std::string headname, bool palabos=true, bool teceplot=false){
         if(teceplot){
             TeceplotWriter tw("teceplot"+headname);
@@ -345,6 +366,7 @@ public:
             pw.writeData(resultdata,resultdata.getBoundingBox().enlarge(-envelope));
         }
     }
+
 private:
     void getPath(Node* parentNode){
         if(!parentNode) return;
@@ -353,6 +375,7 @@ private:
             getPath(parentNode->parent);
         }
     }
+
     double findShortestPath(Dot3D const& begin, bool printall){
         Box3D datadomain=analysisdomain.enlarge(-envelope);
         Node*** parents=new Node**[analysisdomain.getNx()];
@@ -406,6 +429,7 @@ private:
         delete [] parents;
         return length;
     }
+
     double calculateVoidage(Dot3D const& sample, int length){
         int sum=0;
         int total=pow(length,3);
@@ -420,6 +444,7 @@ private:
 
         return 1-static_cast<double>(sum)/total;
     }
+
     bool maxpoint(Dot3D const& center,Box3D const& datadomain,int compareLength){
         int centerx=center.x;
         int centery=center.y;
@@ -437,6 +462,7 @@ private:
         }
         return true;
     }
+    
     void smallWeightDFS(double pathweight, double& threshold, DotList3D& path, DotList3D& pathans, double pathvalue, double& pathvalueans,
                         Dot3D cur, double const& maxvalue, addScale const& addscale, Dot3D const& head, int domainlength){
         if(cur.z==analysisdomain.z1-envelope){
