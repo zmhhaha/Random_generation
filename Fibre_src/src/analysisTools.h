@@ -309,7 +309,9 @@ public:
         return sum/n;
     }
 
-    double smallWeightPath(Filter const& filter, addScale const& addscale){
+    double smallWeightPath(Filter const& filter, addScale const& addscale, int sampleN){
+        int samplenumber=sampleN;
+        
         distanceTransform(filter, addscale ,2);
         Box3D datadomain=analysisdomain.enlarge(-envelope);
         
@@ -328,32 +330,57 @@ public:
             }
         }
 
+        DotList3D headsample;
+        Box3D headdomain=datadomain.enlarge(-std::min(datadomain.getNx(),datadomain.getNy())/5);
         RandomNumber rn;
-        int tempx=55;//rn.getRandomInt(datadomain.x0,datadomain.x1);
-        int tempy=92;//rn.getRandomInt(datadomain.y0,datadomain.y1);
-        int tempz=1;//datadomain.z0;
+        while(headsample.getN()<samplenumber){
+            int _x=rn.getRandomInt(headdomain.x0,headdomain.x1);
+            int _y=rn.getRandomInt(headdomain.y0,headdomain.y1);
+            int _z=datadomain.z0;
+            if(abs(rawdata.get(_x,_y,_z)-0.0)>0.0001&&rawdata.get(_x,_y,_z)<maxvalue/3){
+                headsample.addDot(Dot3D(_x,_y,_z));
+            }
+        }
         
-        double threshold=1.5*datadomain.getNz()*maxvalue;
-        DotList3D pathans;
-        DotList3D path;
-        double pathvalueans=0;
-        if(abs(rawdata.get(tempx,tempy,tempz)-0.0)>0.0001){
-            printf("%d,%d,%d\n",tempx,tempy,tempz);
-            //printf("%f\n",rawdata.get(tempx,tempy,tempz));
-            double pathweight=0;
-            double inputvalue=1;
-            Dot3D head=Dot3D(tempx,tempy,tempz);
-            path.addDot(head);
-            smallWeightDFS(pathweight, threshold, path, pathans, inputvalue, pathvalueans, Dot3D(tempx,tempy,tempz), maxvalue, addscale, head, maxvalue);
+        vector<std::stringstream> outputstream(samplenumber);
+        vector<double> threshold(samplenumber,8*datadomain.getNz()*maxvalue);
+        vector<DotList3D> pathans(samplenumber);
+        vector<DotList3D> path(samplenumber);
+        vector<double> pathvalueans(samplenumber,0);
+        double pathweight=0;
+        double inputvalue=1;
+
+        omp_set_num_threads(samplenumber);
+        #pragma omp parallel for
+        for(int i=0;i<samplenumber;i++){
+            ScalarField3D booldata=resultdata;
+            Dot3D head=headsample.getDot(i);
+            path[i].addDot(head);
+            outputstream[i]<<"The head dot:"<<head.x<<","<<head.y<<","<<head.z<<std::endl;
+            outputstream[i]<<"The head dot weight:"<<rawdata.get(head.x,head.y,head.z)<<std::endl;
+            outputstream[i]<<"The biggest pore radius:"<<maxvalue<<std::endl;
+            smallWeightDFS(pathweight, threshold[i], path[i], pathans[i], inputvalue, pathvalueans[i], Dot3D(head.x,head.y,head.z), maxvalue, addscale, filter, head, maxvalue, booldata);
+            outputstream[i]<<"The path weight:"<<threshold[i]<<std::endl;
+            outputstream[i]<<"The number of path dot:"<<pathans[i].getN()<<std::endl;
+            outputstream[i]<<"The length of path:"<<pathvalueans[i]<<std::endl;
         }
-        printf("The biggest pore radius:%f\n",maxvalue);
-        printf("The number of path dot:%d\n",pathans.getN());
+        double sum=0;
         resultdata=rawdata;
-        for(int i=0;i<pathans.getN();i++){
-            Dot3D temp=pathans.getDot(i);
-            resultdata.get(temp.x,temp.y,temp.z)=maxvalue*5;
+        ofstream pathoutput;
+        for(int i=0;i<samplenumber;i++){
+            string name=createFileName("path",i,2);
+            name+=".dat";
+            pathoutput.open(name, ios::ate); 
+            for(int j=0;j<pathans[i].getN();j++){
+                Dot3D temp=pathans[i].getDot(j);
+                resultdata.get(temp.x,temp.y,temp.z)=maxvalue*5;
+                pathoutput<<temp.x<<"\t"<<temp.y<<"\t"<<temp.z<<endl;
+            }
+            pathoutput.close();
+            sum+=pathvalueans[i];
+            std::cout<<outputstream[i].str()<<endl;
         }
-        return pathvalueans;
+        return sum/samplenumber;
     }
 
     void exportAnalysisData(std::string headname, bool palabos=true, bool teceplot=false){
@@ -464,32 +491,33 @@ private:
     }
     
     void smallWeightDFS(double pathweight, double& threshold, DotList3D& path, DotList3D& pathans, double pathvalue, double& pathvalueans,
-                        Dot3D cur, double const& maxvalue, addScale const& addscale, Dot3D const& head, int domainlength){
+                        Dot3D cur, double const& maxvalue, addScale const& addscale, Filter const& filter, Dot3D const& head, int domainlength, ScalarField3D & booldata){
         if(cur.z==analysisdomain.z1-envelope){
             if(pathweight<threshold){
                 threshold=pathweight;
                 pathans=path;
                 pathvalueans=pathvalue;
+                //printf("%f\n",threshold);
             }
-            printf("%f\n",threshold);
             return;
         }
         if(!contained(cur.x,cur.y,cur.z,analysisdomain.enlarge(-envelope))) return;
-        if(abs(cur.x-head.x)>domainlength||abs(cur.y-head.y)>domainlength) return;
+        int radiuslength=std::pow(cur.x-head.x,2)+std::pow(cur.y-head.y,2);
+        if(radiuslength>std::pow(domainlength,2)) return;
         if(pathweight>threshold) return;
-        double curvalue=maxvalue-rawdata.get(cur.x,cur.y,cur.z);
+        if(path.getN()>analysisdomain.getNz()+20) return;
+        double curvalue=10*(maxvalue-rawdata.get(cur.x,cur.y,cur.z));
         double newvalue=curvalue+pathweight;
         //printf("%d,%d,%d,%f\n",cur.x,cur.y,cur.z,newvalue);
-        if(newvalue>=resultdata.get(cur.x,cur.y,cur.z)) return;
-        resultdata.get(cur.x,cur.y,cur.z)=newvalue;
+        if(newvalue>=booldata.get(cur.x,cur.y,cur.z)) return;
+        booldata.get(cur.x,cur.y,cur.z)=newvalue;
         for(int i=0;i<addscale.n;i++){
-            int x=cur.x+addscale.X[i];
-            int y=cur.y+addscale.Y[i];
-            int z=cur.z+addscale.Z[i];
-            double norm=std::sqrt(std::pow(addscale.X[i],2)+std::pow(addscale.Y[i],2)+std::pow(addscale.Z[i],2));
+            int addx=addscale.X[i],addy=addscale.Y[i],addz=addscale.Z[i];
+            int x=cur.x+addx,y=cur.y+addy,z=cur.z+addz;
+            double norm=filter.get(addx,addy,addz);
             path.addDot(Dot3D(cur.x,cur.y,cur.z));
             smallWeightDFS(newvalue,threshold, path, pathans, pathvalue+norm, pathvalueans,
-                           Dot3D(x,y,z),maxvalue,addscale,head,domainlength);
+                           Dot3D(x,y,z),maxvalue,addscale,filter,head,domainlength,booldata);
             path.eraseDot();
         }
     }

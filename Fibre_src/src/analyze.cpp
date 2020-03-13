@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <fstream>
+#include <ctime>
 #include "geometry.h"
 #include "vec.h"
 #include "randomnumber.h"
@@ -19,7 +20,7 @@ typedef descriptors::CellDescriptor DESCRIPTOR;
 
 int main(int argc, char* argv[])
 {
-	if (argc != 6)
+	if (argc != 7)
 	{
 		std::cout << "have some mistake in parameter\n";
 		std::cout << "the struct of input\n";
@@ -28,6 +29,7 @@ int main(int argc, char* argv[])
         std::cout << "3. voidage\n";
         std::cout << "4. beta\n";
         std::cout << "5. analytical model\n";
+        std::cout << "6. the other parameter\n";
 		exit(EXIT_FAILURE);
 	}
 
@@ -36,6 +38,7 @@ int main(int argc, char* argv[])
     float voidage = atof(argv[3]);
     float beta = atof(argv[4]);
     int mod = atoi(argv[5]);
+    int typeparameter = atoi(argv[6]);
 
     std::string outname;
 
@@ -101,12 +104,15 @@ int main(int argc, char* argv[])
         outname="pc";
     }
     if(mod==5){
+        time_t time_start=time(NULL);
         addScale addscale(d26);
-        double nc=astools.smallWeightPath(filter,addscale);
-        printf("The path length:%f\n",nc);
+        double nc=astools.smallWeightPath(filter,addscale,typeparameter);
+        printf("The average path length:%f\n",nc);
         outname="swp";
+        time_t time_end=time(NULL);
+        cout<<"time use:"<<(double)difftime(time_end,time_start)<<"s"<<endl;
     }
 
-    astools.exportAnalysisData(outname,true,true);
+    astools.exportAnalysisData(outname);
     return 0;
 }
