@@ -3,6 +3,7 @@
 
 #include "geometry.h"
 #include "cell.h"
+#include <memory>
 
 
 class Block3D {
@@ -196,5 +197,17 @@ private:
     double   *rawData;
     double   ***field;
 };
+
+std::shared_ptr<ScalarField3D> extractSubDomain(ScalarField3D rawdata, Box3D domain){
+    std::shared_ptr<ScalarField3D> extractedScalar(new ScalarField3D(domain.getNx(),domain.getNy(),domain.getNz()));
+    for(int i = domain.x0; i <= domain.x1; i++){
+        for(int j = domain.y0; j <= domain.y1; j++){
+            for(int k = domain.z0; k <= domain.z1; k++){
+                (*extractedScalar).get(i-domain.x0,j-domain.y0,k-domain.z0)=rawdata.get(i,j,k);
+            }
+        }
+    }
+    return extractedScalar;
+}
 
 #endif

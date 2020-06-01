@@ -39,6 +39,7 @@ int main(int argc, char* argv[])
     float beta = atof(argv[4]);
     int mod = atoi(argv[5]);
     int typeparameter = atoi(argv[6]);
+    std::string inputfile = argv[6];
 
     std::string outname;
 
@@ -55,11 +56,13 @@ int main(int argc, char* argv[])
         fin>>px>>py>>pz>>vx>>vy>>vz>>radius;
         fs.insertFibre(Fibre(Point3D(px,py,pz),UnitVec(Point3D(vx,vy,vz)),radius));
     }
+    fin.close();
 
     printf("Fibre set input.\n");
 
     ifstream finRaw(fNameInRawData.c_str());
     ScalarField3D rawdata(Grid_X,Grid_Y,Grid_Z);
+    
     for (int i = 0; i < Grid_X; i++){
         for (int j = 0; j < Grid_Y; j++){
             for (int k = 0; k < Grid_Z; k++){
@@ -67,8 +70,10 @@ int main(int argc, char* argv[])
             }
         }
     }
+    finRaw.close();
 
-    analysisTools astools(rawdata);
+    Box3D analyzedDomain(0,Grid_X-1,0,Grid_Y-1,0,Grid_Z-1);
+    analysisTools astools(*extractSubDomain(rawdata,analyzedDomain));
     printf("Raw Data input.\n");
 
     Filter filter(1,std::sqrt(2),std::sqrt(3));
@@ -89,7 +94,7 @@ int main(int argc, char* argv[])
     }
     if(mod==3){
         int n=1000;
-        int length=100;
+        int length=typeparameter;
         double nsp=astools.porousDistribution(n,length);
         printf("Statistical sample size:%d\n",n);
         printf("The average voidage:%f\n",nsp);
@@ -101,7 +106,7 @@ int main(int argc, char* argv[])
         int nc=astools.porousCenter(part,filter,addscale,0);
         printf("Block number:%d\n",part);
         printf("The center number:%d\n",nc);
-        outname="pc";
+        return 0;
     }
     if(mod==5){
         time_t time_start=time(NULL);
@@ -111,6 +116,26 @@ int main(int argc, char* argv[])
         outname="swp";
         time_t time_end=time(NULL);
         cout<<"time use:"<<(double)difftime(time_end,time_start)<<"s"<<endl;
+    }
+    if(mod==6){
+        bool printbool=true;
+        ifstream fin(inputfile.c_str());
+        string filename=inputfile.substr(0,inputfile.size()-4);
+        int thetempvalue;
+        vector<int> pointvalue;
+        while(fin>>thetempvalue){
+            pointvalue.push_back(thetempvalue);
+        }
+        fin.close();
+        DotList3D pointlist;
+        for(int i=0;i<pointvalue.size();i+=3){
+            pointlist.addDot(Dot3D(pointvalue[i],pointvalue[i+1],pointvalue[i+2]));
+        }
+        addScale addscale(d26);
+        astools.printdistancevalue(filter, addscale, pointlist,filename,printbool);
+        if(!printbool) return 0;
+        outname="pcball";
+        outname+=filename;
     }
 
     astools.exportAnalysisData(outname);
